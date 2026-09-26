@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ministry Books Terminology — Home</title>
+<meta name="description" content="A trilingual terminology trainer for English, German and Russian." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<!-- React, in production mode, loaded from a CDN — no npm/Node build step. -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<!-- Babel Standalone transpiles the JSX below directly in the browser. -->
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<!-- Plain data/logic, no JSX, loaded as ordinary scripts -->
+<script src="js/data.js"></script>
+<script src="js/i18n-data.js"></script>
+<script src="js/hooks.js"></script>
+<script src="js/babel-loader.js"></script>
+
+<script>
+  loadBabelScripts([
+    "js/components/LangSwitch.jsx",
+    "js/components/Header.jsx",
+    "js/components/Footer.jsx",
+    "js/components/Layout.jsx",
+    "js/pages/HomePage.jsx",
+    "js/entry-home.jsx"
+  ]).catch((err) => console.error("Failed to start the app:", err));
+</script>
+
+</body>
+</html>

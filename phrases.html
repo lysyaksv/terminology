@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ministry Books Terminology — Phrases</title>
+<meta name="description" content="Practice full trilingual sentences in English, German and Russian, once individual terms feel comfortable." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<script src="js/phrases-data.js"></script>
+<script src="js/i18n-data.js"></script>
+<script src="js/text-utils.js"></script>
+<script src="js/hooks.js"></script>
+<script src="js/babel-loader.js"></script>
+
+<script>
+  loadBabelScripts([
+    "js/components/LangSwitch.jsx",
+    "js/components/Header.jsx",
+    "js/components/Footer.jsx",
+    "js/components/Layout.jsx",
+    "js/pages/PhrasesPage.jsx",
+    "js/entry-phrases.jsx"
+  ]).catch((err) => console.error("Failed to start the app:", err));
+</script>
+
+</body>
+</html>
