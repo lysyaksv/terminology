@@ -15,7 +15,7 @@ function HeroSample() {
             fontSize: "0.9rem",
           }}
         >
-          <span>{term.en}</span>
+          <span style={{ fontWeight: 700 }}>{term.en}</span>
           <span style={{ color: "var(--brass-600)" }}>{term.de}</span>
         </div>
       ))}

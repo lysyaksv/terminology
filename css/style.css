@@ -251,6 +251,7 @@ input:focus-visible,
 
 .hero-figure {
   background: var(--paper-050);
+  color: var(--ink-text);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   padding: 1.75rem;
