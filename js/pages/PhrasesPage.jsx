@@ -107,6 +107,10 @@ function PhrasesPage() {
     setIndex((i) => i + 1);
   }
 
+  function handleBack() {
+    setIndex((i) => Math.max(0, i - 1));
+  }
+
   let stageContent;
   if (queue.length === 0) {
     stageContent = <p>{t("glossary_empty")}</p>;
@@ -115,9 +119,14 @@ function PhrasesPage() {
       <div className="summary-box">
         <p className="stage-sub">{t("summary_title")}</p>
         <p>{t("summary_body")}</p>
-        <button className="btn btn-primary" onClick={handleRestart}>
-          {t("btn_practice_again")}
-        </button>
+        <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", marginTop: "0.5rem" }}>
+          <button className="btn btn-secondary" onClick={handleBack}>
+            {t("btn_back")}
+          </button>
+          <button className="btn btn-primary" onClick={handleRestart}>
+            {t("btn_practice_again")}
+          </button>
+        </div>
       </div>
     );
   } else {
@@ -125,6 +134,9 @@ function PhrasesPage() {
       <React.Fragment>
         <PhrasePanes phrase={phrase} from={from} to={to} />
         <div style={{ display: "flex", gap: "0.75rem" }}>
+          <button className="btn btn-secondary" disabled={index === 0} onClick={handleBack}>
+            {t("btn_back")}
+          </button>
           <button className="btn btn-secondary" onClick={handleNext}>
             {t("btn_next")}
           </button>

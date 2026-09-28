@@ -33,7 +33,27 @@ function ProgressRow({ index, total, correct }) {
   );
 }
 
-function SummaryBox({ correct, total, onRestart }) {
+// Back/Next pair, reused across every mode. Back is always available (except
+// on the very first question) — it never touches score state, it only moves
+// the index; whatever was already answered on the question you land on is
+// preserved and shown as-is (see PracticePage's per-index answer map).
+function NavRow({ onBack, onNext, backDisabled, showNext }) {
+  const { t } = useI18n();
+  return (
+    <div style={{ display: "flex", gap: "0.75rem" }}>
+      <button className="btn btn-secondary" disabled={backDisabled} onClick={onBack}>
+        {t("btn_back")}
+      </button>
+      {showNext && (
+        <button className="btn btn-secondary" onClick={onNext}>
+          {t("btn_next")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SummaryBox({ correct, total, onRestart, onBack }) {
   const { t } = useI18n();
   return (
     <div className="summary-box">
@@ -42,14 +62,19 @@ function SummaryBox({ correct, total, onRestart }) {
         {correct} / {total}
       </div>
       <p>{t("summary_body")}</p>
-      <button className="btn btn-primary" onClick={onRestart}>
-        {t("btn_practice_again")}
-      </button>
+      <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", marginTop: "0.5rem" }}>
+        <button className="btn btn-secondary" onClick={onBack}>
+          {t("btn_back")}
+        </button>
+        <button className="btn btn-primary" onClick={onRestart}>
+          {t("btn_practice_again")}
+        </button>
+      </div>
     </div>
   );
 }
 
-function FlashcardMode({ term, from, to, audioReady, flipped, onFlip, onNext }) {
+function FlashcardMode({ term, from, to, audioReady, flipped, onFlip, onNext, onBack, backDisabled }) {
   const { t } = useI18n();
   const frontClass = `flashcard-face front${TextUtils.lengthTierClass(term[from])}`;
   const backClass = `flashcard-face back${TextUtils.lengthTierClass(term[to])}`;
@@ -66,24 +91,17 @@ function FlashcardMode({ term, from, to, audioReady, flipped, onFlip, onNext }) 
         </div>
       </div>
       <p className="flashcard-hint">{t("flashcard_hint")}</p>
-      {flipped && (
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button
-            className="btn btn-secondary"
-            onClick={(e) => {
-              e.stopPropagation();
-              onNext();
-            }}
-          >
-            {t("btn_next")}
-          </button>
-        </div>
-      )}
+      <NavRow
+        backDisabled={backDisabled}
+        showNext={flipped}
+        onBack={(e) => { e.stopPropagation(); onBack(); }}
+        onNext={(e) => { e.stopPropagation(); onNext(); }}
+      />
     </React.Fragment>
   );
 }
 
-function MultipleChoiceMode({ term, from, to, audioReady, answered, chosen, onAnswer, onNext }) {
+function MultipleChoiceMode({ term, from, to, audioReady, answered, chosen, onAnswer, onNext, onBack, backDisabled }) {
   const { t } = useI18n();
   const options = React.useMemo(() => buildDistractors(term, to), [term.id, to]);
   const promptClass = `stage-term${TextUtils.lengthTierClass(term[from])}`;
@@ -113,25 +131,19 @@ function MultipleChoiceMode({ term, from, to, audioReady, answered, chosen, onAn
       <div className={"feedback" + (answered ? (chosen === term[to] ? " correct" : " incorrect") : "")}>
         {answered && (chosen === term[to] ? t("feedback_correct") : `${t("feedback_incorrect")} ${term[to]}`)}
       </div>
-      {answered && (
-        <div>
-          <button className="btn btn-secondary" onClick={onNext}>
-            {t("btn_next")}
-          </button>
-        </div>
-      )}
+      <NavRow backDisabled={backDisabled} showNext={answered} onBack={onBack} onNext={onNext} />
     </React.Fragment>
   );
 }
 
-function TypingMode({ term, from, to, audioReady, answered, typedValue, onTypedChange, onSubmit, onNext }) {
+function TypingMode({ term, from, to, audioReady, answered, typedValue, onTypedChange, onSubmit, onNext, onBack, backDisabled }) {
   const { t } = useI18n();
   const inputRef = React.useRef(null);
   const promptClass = `stage-term${TextUtils.lengthTierClass(term[from])}`;
   const isCorrect = answered ? TextUtils.isTypingCorrect(typedValue, term[to]) : null;
 
   React.useEffect(() => {
-    if (inputRef.current) inputRef.current.focus();
+    if (inputRef.current && !answered) inputRef.current.focus();
   }, [term.id]);
 
   return (
@@ -167,13 +179,7 @@ function TypingMode({ term, from, to, audioReady, answered, typedValue, onTypedC
       <div className={"feedback" + (answered ? (isCorrect ? " correct" : " incorrect") : "")}>
         {answered && (isCorrect ? t("feedback_correct") : `${t("feedback_incorrect")} ${term[to]}`)}
       </div>
-      {answered && (
-        <div>
-          <button className="btn btn-secondary" onClick={onNext}>
-            {t("btn_next")}
-          </button>
-        </div>
-      )}
+      <NavRow backDisabled={backDisabled} showNext={answered} onBack={onBack} onNext={onNext} />
     </React.Fragment>
   );
 }
@@ -189,29 +195,32 @@ function PracticePage() {
   const [queueVersion, setQueueVersion] = React.useState(0);
 
   const [index, setIndex] = React.useState(0);
-  const [correct, setCorrect] = React.useState(0);
-  const [answered, setAnswered] = React.useState(false);
-  const [flipped, setFlipped] = React.useState(false);
-  const [chosen, setChosen] = React.useState(null);
-  const [typedValue, setTypedValue] = React.useState("");
+  // Per-question state, keyed by index, so going back and forth never loses
+  // or re-triggers an answer — each question remembers its own outcome
+  // independently of which one is currently on screen.
+  const [answersByIndex, setAnswersByIndex] = React.useState({});
 
   const queue = React.useMemo(() => buildQueue(from, to, order), [from, to, order, queueVersion]);
   const term = queue[index];
+  const current = answersByIndex[index] || {};
+
+  const correct = React.useMemo(() => {
+    if (mode !== "multiple" && mode !== "typing") return 0; // flashcards aren't scored
+    let count = 0;
+    for (const key of Object.keys(answersByIndex)) {
+      const a = answersByIndex[key];
+      if (!a || !a.answered) continue;
+      const t2 = queue[Number(key)];
+      if (!t2) continue;
+      if (mode === "multiple" && a.chosen === t2[to]) count++;
+      else if (mode === "typing" && TextUtils.isTypingCorrect(a.typedValue || "", t2[to])) count++;
+    }
+    return count;
+  }, [answersByIndex, queue, to, mode]);
 
   function resetSession() {
     setIndex(0);
-    setCorrect(0);
-    setAnswered(false);
-    setFlipped(false);
-    setChosen(null);
-    setTypedValue("");
-  }
-
-  function resetQuestion() {
-    setAnswered(false);
-    setFlipped(false);
-    setChosen(null);
-    setTypedValue("");
+    setAnswersByIndex({});
   }
 
   function handleFromChange(e) {
@@ -244,27 +253,35 @@ function PracticePage() {
 
   function handleNext() {
     setIndex((i) => i + 1);
-    resetQuestion();
+  }
+
+  function handleBack() {
+    setIndex((i) => Math.max(0, i - 1));
+  }
+
+  function updateCurrent(patch) {
+    setAnswersByIndex((prev) => ({ ...prev, [index]: { ...prev[index], ...patch } }));
+  }
+
+  function handleFlip() {
+    updateCurrent({ flipped: !current.flipped });
   }
 
   function handleMcAnswer(opt) {
-    if (answered) return;
-    setAnswered(true);
-    setChosen(opt);
-    if (opt === term[to]) setCorrect((c) => c + 1);
+    if (current.answered) return;
+    updateCurrent({ answered: true, chosen: opt });
   }
 
   function handleTypingSubmit() {
-    if (answered) return;
-    setAnswered(true);
-    if (TextUtils.isTypingCorrect(typedValue, term[to])) setCorrect((c) => c + 1);
+    if (current.answered) return;
+    updateCurrent({ answered: true });
   }
 
   let stageContent;
   if (queue.length === 0) {
     stageContent = <p>{t("glossary_empty")}</p>;
   } else if (index >= queue.length) {
-    stageContent = <SummaryBox correct={correct} total={queue.length} onRestart={handleRestart} />;
+    stageContent = <SummaryBox correct={correct} total={queue.length} onRestart={handleRestart} onBack={handleBack} />;
   } else if (mode === "flashcards") {
     stageContent = (
       <FlashcardMode
@@ -272,9 +289,11 @@ function PracticePage() {
         from={from}
         to={to}
         audioReady={audioReady}
-        flipped={flipped}
-        onFlip={() => setFlipped((f) => !f)}
+        flipped={!!current.flipped}
+        onFlip={handleFlip}
         onNext={handleNext}
+        onBack={handleBack}
+        backDisabled={index === 0}
       />
     );
   } else if (mode === "multiple") {
@@ -284,10 +303,12 @@ function PracticePage() {
         from={from}
         to={to}
         audioReady={audioReady}
-        answered={answered}
-        chosen={chosen}
+        answered={!!current.answered}
+        chosen={current.chosen ?? null}
         onAnswer={handleMcAnswer}
         onNext={handleNext}
+        onBack={handleBack}
+        backDisabled={index === 0}
       />
     );
   } else {
@@ -297,11 +318,13 @@ function PracticePage() {
         from={from}
         to={to}
         audioReady={audioReady}
-        answered={answered}
-        typedValue={typedValue}
-        onTypedChange={setTypedValue}
+        answered={!!current.answered}
+        typedValue={current.typedValue ?? ""}
+        onTypedChange={(v) => updateCurrent({ typedValue: v })}
         onSubmit={handleTypingSubmit}
         onNext={handleNext}
+        onBack={handleBack}
+        backDisabled={index === 0}
       />
     );
   }
